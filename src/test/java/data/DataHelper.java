@@ -13,36 +13,67 @@ public class DataHelper {
 
     private static final Faker faker = new Faker(new Locale("en"));
     private static final Random random = new Random();
-    private static final LocalDate now = LocalDate.now();
 
     public static class CommonValues {
 
-        //Общее невалидное значение - пробелы
+        /**
+         * Метод для генерации буквенных значений.
+         *
+         * @param length - необходимое количество латинских букв.
+         */
+        public static String generateLetters(int length) {
+            return faker.letterify("?".repeat(length)).toUpperCase();
+        }
+
+
+        /**
+         * Общее невалидное значение - символы.
+         *
+         * @param lenght - необходимое количество символов.
+         */
+        public static String invalidValueSymbols(int lenght) {
+            String symbols = "!@#$%^&*()_+={}[]|:;<>?,./";
+            StringBuilder result = new StringBuilder();
+            for (int i = 0; i < lenght; i++) {
+                int index = random.nextInt(symbols.length());
+                result.append(symbols.charAt(index));
+            }
+            return result.toString();
+
+        }
+
+
+        /**
+         * Общее невалидное значение - кириллица.
+         *
+         * @param lenght - необходимое количество символов.
+         */
+        public static String invalidValueCyrillic(int lenght) {
+            String cyrillic = "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя";
+            StringBuilder result = new StringBuilder();
+            for (int i = 0; i < lenght; i++) {
+                int index = random.nextInt(cyrillic.length());
+                result.append(cyrillic.charAt(index));
+            }
+            return result.toString();
+        }
+
+
+        /**
+         * Общее невалидное значение - пробелы.
+         */
         public static String invalidValueSpace() {
             return "   ";
         }
 
-        //Общее невалидное значение - пустое поле
+
+        /**
+         * Общее невалидное значение - пустое поле.
+         */
         public static String invalidValueEmpty() {
             return "";
         }
 
-        //Общее невалидное значение - символы + латиница + кириллица
-        public static String invalidValueSymbolsAndLatinAndCyrillic() {
-            String symbols = "!@#$%^&*()-_=+[]{}<>?";
-            String latin = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-            String cyrillic = "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя";
-            List<Character> chars = new ArrayList<>();
-            chars.add(symbols.charAt(random.nextInt(symbols.length())));
-            chars.add(latin.charAt(random.nextInt(latin.length())));
-            chars.add(cyrillic.charAt(random.nextInt(cyrillic.length())));
-            Collections.shuffle(chars);
-            StringBuilder result = new StringBuilder();
-            for (char c : chars) {
-                result.append(c);
-            }
-            return result.toString();
-        }
 
         /**
          * Общий метод для генерации цифр.
@@ -59,60 +90,106 @@ public class DataHelper {
 
     }
 
+
     public static class CardNumber {
-        //Номер специальной карты APPROVED
+
+        /**
+         * Номер специальной карты APPROVED.
+         */
         public static String numberApprovedCard() {
             return "1111222233334444";
         }
 
-        //Номер специальной карты DECLINED
+
+        /**
+         * Номер специальной карты DECLINED.
+         */
         public static String numberDeclinedCard() {
             return "5555666677778888";
         }
 
-        //Невалидный номер карты - 0000 0000 0000 0000
+
+        /**
+         * Невалидный номер карты - 0000 0000 0000 0000.
+         */
         public static String invalidNumberCardAllZeros() {
             return "0000000000000000";
         }
 
+
+        /**
+         * Невалидный номер карты - 4111 1111 1111 1111.
+         */
+        public static String invalidNumberCardSpec() {
+            return "4111111111111111";
+        }
+
     }
 
+
     public static class Month {
-        //Валидный месяц
+
+        /**
+         * Валидный месяц.
+         */
         public static String validMonth() {
             return String.format("%02d", faker.number().numberBetween(1, 13));
         }
 
-        //Валидный месяц - 01
+
+        /**
+         * Валидный месяц - текущий месяц.
+         */
+        public static String validCurrentMonth() {
+            return String.format("%02d", LocalDate.now().getMonthValue());
+        }
+
+
+        /**
+         * Валидный месяц - 01.
+         */
         public static String validMonth01() {
             return "01";
         }
 
-        //Валидный месяц - 12
+
+        /**
+         * Валидный месяц - 12.
+         */
         public static String validMonth12() {
             return "12";
         }
 
-        //Невалидный месяц для текущего года - текущий месяц минус 1
+
+        /**
+         * Невалидный месяц для текущего года - текущий месяц минус 1.
+         */
         public static String invalidMonthCurrentMonthMinus1() {
-            LocalDate previousMonth = now.minusMonths(1);
+            LocalDate previousMonth = LocalDate.now().minusMonths(1);
             int month = previousMonth.getMonthValue();
             return String.format("%02d", month);
         }
 
-        //Невалидный месяц - 00
+
+        /**
+         * /Невалидный месяц - 00.
+         */
         public static String invalidMonth00() {
             return "00";
         }
 
-        //Невалидный месяц - 13
+
+        /**
+         * Невалидный месяц - 13
+         */
         public static String invalidMonth13() {
             return "13";
         }
-
     }
 
+
     public static class CardYear {
+
         /**
          * Генерация года с учётом смещения от текущего года.
          *
@@ -124,7 +201,9 @@ public class DataHelper {
         }
     }
 
+
     public static class Holder {
+
         /**
          * Генерация имени держателя карты.
          *
@@ -149,83 +228,89 @@ public class DataHelper {
         }
 
 
-        //Валидный держатель
+        /**
+         * Валидный держатель - 2 слова на латинице через пробел.
+         */
         public static String validHolder() {
             return generateHolder(1, "", true);
         }
 
-        //Валидный держатель - через дефис
+
+        /**
+         * Валидный держатель - имя на латинице через дефис.
+         */
         public static String validHolderHyphenate() {
             return generateHolder(2, "-", true);
         }
 
-        //Валидный держатель - через апостроф
+
+        /**
+         * Валидный держатель - имя на латинице через апостроф.
+         */
         public static String validHolderApostrophe() {
             return generateHolder(2, "'", true);
         }
 
-        //Валидный держатель - множественные части имени
+
+        /**
+         * Валидный держатель - множественные части имени.
+         */
         public static String validHolderMultipleNames() {
             return generateHolder(3, " ", true);
         }
 
+
         /**
-         * Метод для генерации буквенных значений.
-         *
-         * @param length - необходимое количество букв.
+         * Валидный держатель - минимальное валидное значение (2 буквы через пробел)
          */
-
-        public static String generateLetters(int length) {
-            return faker.letterify("?".repeat(length)).toUpperCase();
-        }
-
-        //Валидный держатель - минимальное валидное значение (2 буквы через пробел)
         public static String validHolderTwoLettersAndSpace() {
-            String letters = generateLetters(2);
+            String letters = CommonValues.generateLetters(2);
             return letters.charAt(0) + " " + letters.charAt(1);
 
         }
 
-        //Валидный держатель - минимальное валидное значение плюс 1 (3 буквы и один пробел)
+
+        /**
+         * Валидный держатель - минимальное валидное значение плюс 1 (3 буквы и один пробел)
+         */
         public static String validHolderThreeLettersAndSpace() {
-            String letters = generateLetters(3);
+            String letters = CommonValues.generateLetters(3);
             return letters.charAt(0) + " " + letters.charAt(1) + letters.charAt(2);
 
         }
 
-        //Невалидный держатель - кириллица
+
+        /**
+         * Невалидный держатель - кириллица.
+         */
         public static String invalidHolderCyrillic() {
             Faker fakerRu = new Faker(new Locale("ru"));
             return fakerRu.name().fullName();
         }
 
-        //Невалидный держатель - одно слово
+
+        /**
+         * Невалидный держатель - одно слово на латинице.
+         */
         public static String invalidHolderOneWord() {
             return generateHolder(1, "", false);
         }
-
-
-        //Невалидный держатель - символы
-        public static String invalidHolderSymbols() {
-            String symbols = "!@#$%^&*()_+={}[]|:;<>?,./";
-            StringBuilder result = new StringBuilder();
-            for (int i = 0; i < 3; i++) {
-                int index = random.nextInt(symbols.length());
-                result.append(symbols.charAt(index));
-            }
-            return result.toString();
-
-        }
     }
+
 
     public static class CVC {
 
-        //Валидный CVC - 000
+        /**
+         * Валидный CVC - 000.
+         */
         public static String validCVC000() {
             return "000";
         }
 
-        //Валидный CVC - 999
+
+        /**
+         * Валидный CVC - 999.
+         */
         public static String validCVC999() {
             return "999";
         }
