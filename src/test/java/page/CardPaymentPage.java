@@ -8,6 +8,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.codeborne.selenide.Selenide.$;
 import static com.codeborne.selenide.Selenide.$$;
 
 
@@ -16,11 +17,20 @@ public class CardPaymentPage {
 
     private final ElementsCollection headers = $$("h3");
 
+    private final SelenideElement numberCard = $("[placeholder ='0000 0000 0000 0000']");
+    private final SelenideElement month = $("[placeholder = '08']");
+    private final SelenideElement year = $("[placeholder = '22']");
+    private final SelenideElement holder = $$(".input__inner")
+            .findBy(Condition.text("Владелец"))
+            .$("input");
+    private final SelenideElement cvc = $("[placeholder = '999']");
+
+
     private final SelenideElement continueButton = $$("button")
-            .findBy(Condition.matchText("Продолжить"));
+            .findBy(Condition.exactText("Продолжить"));
 
     private final SelenideElement requestBank = $$("button")
-            .findBy(Condition.matchText("Отправляем запрос в Банк..."));
+            .findBy(Condition.exactText("Отправляем запрос в Банк..."));
 
     private final SelenideElement successNotification = $$(".notification").findBy(
             Condition.and(
@@ -36,31 +46,45 @@ public class CardPaymentPage {
                     Condition.text("Ошибка! Банк отказал в проведении операции.")
             ));
 
-    private final ElementsCollection fields = $$(".input__inner");
-    private final Map<String, SelenideElement> inputsByLabel;
-
 
     public CardPaymentPage() {
         headers.findBy(Condition.exactText("Оплата по карте"))
                 .shouldBe(Condition.visible);
-
-        inputsByLabel = fields.stream()
-                .collect(Collectors.toMap(
-                        field -> field.$(".input__top").getText(),
-                        field -> field.$("input")
-                ));
     }
 
+    /**
+     * Вспомогательный метод, возвращает элемент поля ввода по его названию.
+     *
+     * Метод используется для получения соответствующего элемента формы (input)
+     * на основании значения перечисления.
+     * @param field - поле, для которого требуется получить элемент
+     */
+    private SelenideElement getFieldElement(FieldName field) {
+        switch (field) {
+            case NUMBER_CARD:
+                return numberCard;
+            case MONTH:
+                return month;
+            case YEAR:
+                return year;
+            case HOLDER:
+                return holder;
+            case CVC:
+                return cvc;
+            default:
+                throw new IllegalArgumentException("Неизвестное поле: " + field);
+        }
+    }
 
     /**
      * Заполнение одного поля.
+     *
      * @param field - название поля, которое нужно заполнить.
      * @param value - значение, которое нужно внести в поле.
      */
-    public void fillOneField(String field, String value) {
-        inputsByLabel.get(field).setValue(value);
+    public void fillOneField(FieldName field, String value) {
+        getFieldElement(field).setValue(value);
     }
-
 
 
     /**
@@ -69,7 +93,6 @@ public class CardPaymentPage {
     public void clickContinueButton() {
         continueButton.click();
     }
-
 
 
     /**
@@ -83,126 +106,75 @@ public class CardPaymentPage {
     }
 
 
-
     /**
      * Поиск сообщения об ошибке под полем.
+     *
      * @param field     - название поля, под которым должно быть сообщение об ошибке.
      * @param textError - ожидаемый текст ошибки.
      */
-    public void searchError(String field, String textError) {
-        inputsByLabel.get(field)
-                .closest(".input__inner")
+    public void searchError(FieldName field, String textError) {
+        getFieldElement(field).closest(".input__inner")
                 .$(".input__sub")
                 .shouldBe(Condition.visible)
                 .shouldHave(Condition.exactText(textError));
     }
 
 
-
     /**
      * Проверка, что поле не принимает символы, пробелы, латиницу и кириллицу
+     *
      * @param field - название поля, для которого выполняется проверка.
      */
-    public void checkFieldEmptyAfterInvalidInput(String field) {
-        inputsByLabel.get(field)
-                .shouldHave(Condition.value(""));
+    public void checkFieldEmptyAfterInvalidInput(FieldName field) {
+       getFieldElement(field).shouldHave(Condition.value(""));
     }
-
 
 
     /**
      * Проверка, что поле не принимает больше символов, чем положено.
      * Например, при вводе 3х цифр в поле "Месяц", последняя цифры обрезается.
-     * @param field          - название поля, для которого выполняется проверка.
+     *
+     * @param field         - название поля, для которого выполняется проверка.
      * @param expectedValue - ожидаемое значение после того, как лишнее обрежется.
      */
-    public void checkInputLength(String field, String expectedValue) {
-        inputsByLabel.get(field)
-                .shouldHave(Condition.value(expectedValue));
+    public void checkInputLength(FieldName field, String expectedValue) {
+        getFieldElement(field).shouldHave(Condition.value(expectedValue));
     }
-
-
 
 
     /**
      * Заполнение всех полей формы оплаты по карте.
+     *
      * @param number - номер карты.
-     * @param month - месяц.
-     * @param year - год.
+     * @param month  - месяц.
+     * @param year   - год.
      * @param holder - имя владельца.
-     * @param cvc - CVC/CVV.
+     * @param cvc    - CVC/CVV.
      */
-    public void fillCardForm(String number, String month, String year, String holder, String cvc){
-        fillOneField("Номер карты", number);
-        fillOneField("Месяц", month);
-        fillOneField("Год", year);
-        fillOneField("Владелец", holder);
-        fillOneField("CVC/CVV", cvc);
+    public void fillCardForm(String number, String month, String year, String holder, String cvc) {
+        fillOneField(FieldName.NUMBER_CARD, number);
+        fillOneField(FieldName.MONTH, month);
+        fillOneField(FieldName.YEAR, year);
+        fillOneField(FieldName.HOLDER, holder);
+        fillOneField(FieldName.CVC, cvc);
     }
-
 
 
     /**
      * Успешная операция оплаты по карте APPROVED.
      */
-    public void successfulCardOperation(String number, String month, String year, String holder, String cvc) {
-        fillCardForm(number, month, year, holder, cvc);
-        clickContinueButton();
-        sendRequestToBank();
+    public void successfulCardOperation() {
         successNotification.shouldBe(Condition.visible, Duration.ofSeconds(15));
         errorNotification.shouldNotBe(Condition.visible);
     }
 
 
-
     /**
      * Отклоненная операция по карте DECLINED.
      */
-
-    public void unsuccessfulCardOperation(String number, String month, String year, String holder, String cvc) {
-        fillCardForm(number, month, year, holder, cvc);
-        clickContinueButton();
-        sendRequestToBank();
+    public void unsuccessfulCardOperation() {
         errorNotification.shouldBe(Condition.visible, Duration.ofSeconds(15));
         successNotification.shouldNotBe(Condition.visible);
 
-    }
-
-
-
-    /**
-     * Метод-обертка: заполняет одно поле и проверяет под этиим полем сообщение об ошибке.
-     * @param field - название поля.
-     * @param value - значение, которое нужно внести в поле.
-     * @param textError - ожидаемый текст сообщения об ошибке.
-     */
-    public void fillOneFieldAndSearchError(String field, String value, String textError) {
-        fillOneField(field, value);
-        clickContinueButton();
-        searchError(field, textError);
-    }
-
-
-
-    /**
-     * Метод-обертка: заполняет одно поле невалидными значениями (символы, пробелы, латиница, кириллица) и проверяет, что поле остается пустым.
-     * @param field - название поля.
-     * @param value - значение, которое нужно внести в поле.
-     */
-    public void fillFieldAndCheckEmptyAfterInvalidInput(String field, String value) {
-     fillOneField(field, value);
-     checkFieldEmptyAfterInvalidInput(field);
-    }
-
-
-    /**
-     * Метод-обертка: заполняет одно поле и проверяет, что символы свыше допостимого количества обрезаются..
-     * @param field - название поля.
-     * @param value - значение, которое нужно внести в поле.
-     * @param expectedValue - ожидаемое значение после того, как лишнее обрежется..
-     */
-    public void fillFieldAndCheckInputLength(String field, String value, String expectedValue) {
-     fillOneField(field, value);
-     checkInputLength(field, expectedValue);
     }
 }

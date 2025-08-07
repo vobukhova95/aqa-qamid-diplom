@@ -4,6 +4,7 @@ import com.github.javafaker.Faker;
 
 import java.time.LocalDate;
 import java.time.Year;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 public class DataHelper {
@@ -15,6 +16,56 @@ public class DataHelper {
     private static final Random random = new Random();
 
     public static class CommonValues {
+
+        /**
+         * Метод, который возвращает статус "APPROVED".
+         */
+        public static String getStatusApproved() {
+            return "APPROVED";
+        }
+
+
+        /**
+         * Метод, который возвращает статус "DECLINED".
+         */
+        public static String getStatusDeclined() {
+            return "DECLINED";
+        }
+
+
+        /**
+         * Метод, который возвращает стоимость путешествия.
+         */
+        public static int getCostTravel() {
+            return 4_500_000;
+        }
+
+
+        /**
+         * Метод, который возвращает текст ошибки "Неверный формат".
+         */
+        public static String getErrorTextIncorrectFormat(){
+            return "Неверный формат";
+        }
+
+
+        /**
+         * Метод, который возвращает текст ошибки "Поле обязательно для заполнения".
+         */
+        public static String getErrorTextRequiredField() {
+            return "Поле обязательно для заполнения";
+        }
+
+
+        /**
+         * Метод, который подготавливает ожидаемое значение и обрезает строку до максимальной валидной длины.
+         * @param invalidValue - невалидное по количеству символов значение.
+         * @param maxLength - максимальное допустимое количестов символов в строке.
+         */
+        public static String truncateToMaxLength (String invalidValue, int maxLength){
+         return invalidValue.substring(0, maxLength);
+        }
+
 
         /**
          * Метод для генерации буквенных значений.
@@ -81,11 +132,8 @@ public class DataHelper {
          * @param length - необходимое количество цифр.
          */
         public static String generateDigits(int length) {
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < length; i++) {
-                sb.append(faker.number().randomDigit());
-            }
-            return sb.toString();
+            String pattern = "#".repeat(length);
+            return faker.numerify(pattern);
         }
 
     }
@@ -96,7 +144,7 @@ public class DataHelper {
         /**
          * Номер специальной карты APPROVED.
          */
-        public static String numberApprovedCard() {
+        public static String approvedCardNumber() {
             return "1111222233334444";
         }
 
@@ -104,7 +152,7 @@ public class DataHelper {
         /**
          * Номер специальной карты DECLINED.
          */
-        public static String numberDeclinedCard() {
+        public static String declinedCardNumber() {
             return "5555666677778888";
         }
 
@@ -112,7 +160,7 @@ public class DataHelper {
         /**
          * Невалидный номер карты - 0000 0000 0000 0000.
          */
-        public static String invalidNumberCardAllZeros() {
+        public static String invalidCardNumberAllZeros() {
             return "0000000000000000";
         }
 
@@ -120,8 +168,17 @@ public class DataHelper {
         /**
          * Невалидный номер карты - 4111 1111 1111 1111.
          */
-        public static String invalidNumberCardSpec() {
+        public static String invalidCardNumberSpec() {
             return "4111111111111111";
+        }
+
+        public static String trimTo16Digits (String invalidCardNumber) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(invalidCardNumber, 0, 4).append(" ");
+            sb.append(invalidCardNumber, 4, 8).append(" ");
+            sb.append(invalidCardNumber, 8, 12).append(" ");
+            sb.append(invalidCardNumber, 12, 16);
+            return sb.toString();
         }
 
     }
@@ -129,10 +186,13 @@ public class DataHelper {
 
     public static class Month {
 
+      private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM");
+
         /**
          * Валидный месяц.
          */
         public static String validMonth() {
+
             return String.format("%02d", faker.number().numberBetween(1, 13));
         }
 
@@ -141,7 +201,7 @@ public class DataHelper {
          * Валидный месяц - текущий месяц.
          */
         public static String validCurrentMonth() {
-            return String.format("%02d", LocalDate.now().getMonthValue());
+            return LocalDate.now().format(formatter);
         }
 
 
@@ -165,9 +225,7 @@ public class DataHelper {
          * Невалидный месяц для текущего года - текущий месяц минус 1.
          */
         public static String invalidMonthCurrentMonthMinus1() {
-            LocalDate previousMonth = LocalDate.now().minusMonths(1);
-            int month = previousMonth.getMonthValue();
-            return String.format("%02d", month);
+            return LocalDate.now().minusMonths(1).format(formatter);
         }
 
 
@@ -189,6 +247,7 @@ public class DataHelper {
 
 
     public static class CardYear {
+       private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yy");
 
         /**
          * Генерация года с учётом смещения от текущего года.
@@ -197,7 +256,7 @@ public class DataHelper {
          * @return последние 2 цифры нужного года.
          */
         public static String generateYearOffset(int offset) {
-            return String.valueOf(Year.now().plusYears(offset).getValue()).substring(2);
+            return LocalDate.now().plusYears(offset).format(formatter);
         }
     }
 
@@ -295,6 +354,7 @@ public class DataHelper {
         public static String invalidHolderOneWord() {
             return generateHolder(1, "", false);
         }
+
     }
 
 
