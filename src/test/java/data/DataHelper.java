@@ -3,7 +3,6 @@ package data;
 import com.github.javafaker.Faker;
 
 import java.time.LocalDate;
-import java.time.Year;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -56,6 +55,21 @@ public class DataHelper {
             return "Поле обязательно для заполнения";
         }
 
+        /**
+         * Метод, который возвращает текст ошибки "Неверно указан срок действия карты".
+         */
+        public static String getErrorTextExpirationDateIsIncorrect() {
+            return "Неверно указан срок действия карты";
+        }
+
+        /**
+         * Метод, который возвращает текст ошибки "Истёк срок действия карты".
+         */
+        public static String getErrorTextCardExpired() {
+            return "Истёк срок действия карты";
+        }
+
+
 
         /**
          * Метод, который подготавливает ожидаемое значение и обрезает строку до максимальной валидной длины.
@@ -83,7 +97,7 @@ public class DataHelper {
          * @param lenght - необходимое количество символов.
          */
         public static String invalidValueSymbols(int lenght) {
-            String symbols = "!@#$%^&*()_+={}[]|:;<>?,./";
+            String symbols = "!@#$%^&*()_+={}[]|:;<>?,./`'-";
             StringBuilder result = new StringBuilder();
             for (int i = 0; i < lenght; i++) {
                 int index = random.nextInt(symbols.length());
@@ -121,7 +135,7 @@ public class DataHelper {
         /**
          * Общее невалидное значение - пустое поле.
          */
-        public static String invalidValueEmpty() {
+        public static String getValueEmpty() {
             return "";
         }
 

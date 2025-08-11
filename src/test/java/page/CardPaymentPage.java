@@ -121,24 +121,16 @@ public class CardPaymentPage {
 
 
     /**
-     * Проверка, что поле не принимает символы, пробелы, латиницу и кириллицу
+     * Проверка, что поле содержит ожидаемое значение после ввода.
+     * Используется для проверки, что поле:
+     *  - не принимает недопустимые символы (ожидаемое значение — пустая строка);
+     *  - обрезает ввод до допустимой длины (ожидаемое значение — обрезанная строка).
      *
-     * @param field - название поля, для которого выполняется проверка.
+     * @param field    -     название поля, для которого выполняется проверка.
+     * @param expectedValue - ожидаемое значение, которое должно остаться в поле после ввода.
      */
-    public void checkFieldEmptyAfterInvalidInput(FieldName field) {
-       getFieldElement(field).shouldHave(Condition.value(""));
-    }
-
-
-    /**
-     * Проверка, что поле не принимает больше символов, чем положено.
-     * Например, при вводе 3х цифр в поле "Месяц", последняя цифры обрезается.
-     *
-     * @param field         - название поля, для которого выполняется проверка.
-     * @param expectedValue - ожидаемое значение после того, как лишнее обрежется.
-     */
-    public void checkInputLength(FieldName field, String expectedValue) {
-        getFieldElement(field).shouldHave(Condition.value(expectedValue));
+    public void checkFieldValue(FieldName field, String expectedValue) {
+        getFieldElement(field).shouldHave(Condition.exactValue(expectedValue));
     }
 
 
