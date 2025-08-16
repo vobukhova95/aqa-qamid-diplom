@@ -3,6 +3,7 @@ package page;
 import com.codeborne.selenide.Condition;
 import com.codeborne.selenide.ElementsCollection;
 import com.codeborne.selenide.SelenideElement;
+import io.qameta.allure.Step;
 
 import java.time.Duration;
 import java.util.Map;
@@ -61,7 +62,7 @@ public class CardPaymentPage {
      */
     private SelenideElement getFieldElement(FieldName field) {
         switch (field) {
-            case NUMBER_CARD:
+            case CARD_NUMBER:
                 return numberCard;
             case MONTH:
                 return month;
@@ -82,6 +83,7 @@ public class CardPaymentPage {
      * @param field - название поля, которое нужно заполнить.
      * @param value - значение, которое нужно внести в поле.
      */
+    @Step("Fill the \"{field}\" field with value \"{value}\"")
     public void fillOneField(FieldName field, String value) {
         getFieldElement(field).setValue(value);
     }
@@ -90,6 +92,7 @@ public class CardPaymentPage {
     /**
      * Клик по кнопке "Продолжить".
      */
+    @Step("Submit the payment form")
     public void clickContinueButton() {
         continueButton.click();
     }
@@ -100,6 +103,7 @@ public class CardPaymentPage {
      * Реализовано в отдельном методе, т.к. текст "Отправляем запрос в Банк..." отображается не во всех случаях.
      * Например, если какое-либо поле будет заполнено с ошибкой, запрос в банк не уйдет.
      */
+    @Step("Verify that request to the bank is initiated")
     public void sendRequestToBank() {
         requestBank.shouldBe(Condition.visible);
         requestBank.shouldBe(Condition.disabled);
@@ -112,6 +116,7 @@ public class CardPaymentPage {
      * @param field     - название поля, под которым должно быть сообщение об ошибке.
      * @param textError - ожидаемый текст ошибки.
      */
+    @Step("Verify that error \"{textError}\" is displayed under the \"{field}\" field")
     public void searchError(FieldName field, String textError) {
         getFieldElement(field).closest(".input__inner")
                 .$(".input__sub")
@@ -129,6 +134,7 @@ public class CardPaymentPage {
      * @param field    -     название поля, для которого выполняется проверка.
      * @param expectedValue - ожидаемое значение, которое должно остаться в поле после ввода.
      */
+    @Step("Verify that \"{field}\" field contains value \"{expectedValue}")
     public void checkFieldValue(FieldName field, String expectedValue) {
         getFieldElement(field).shouldHave(Condition.exactValue(expectedValue));
     }
@@ -137,14 +143,15 @@ public class CardPaymentPage {
     /**
      * Заполнение всех полей формы оплаты по карте.
      *
-     * @param number - номер карты.
+     * @param cardNumber - номер карты.
      * @param month  - месяц.
      * @param year   - год.
      * @param holder - имя владельца.
      * @param cvc    - CVC/CVV.
      */
-    public void fillCardForm(String number, String month, String year, String holder, String cvc) {
-        fillOneField(FieldName.NUMBER_CARD, number);
+    @Step("Fill the payment form with provided card details")
+    public void fillCardForm(String cardNumber, String month, String year, String holder, String cvc) {
+        fillOneField(FieldName.CARD_NUMBER, cardNumber);
         fillOneField(FieldName.MONTH, month);
         fillOneField(FieldName.YEAR, year);
         fillOneField(FieldName.HOLDER, holder);
@@ -155,7 +162,8 @@ public class CardPaymentPage {
     /**
      * Успешная операция оплаты по карте APPROVED.
      */
-    public void successfulCardOperation() {
+    @Step("Verify that success notification is displayed after payment")
+    public void checkSuccessNotification () {
         successNotification.shouldBe(Condition.visible, Duration.ofSeconds(15));
         errorNotification.shouldNotBe(Condition.visible);
     }
@@ -164,7 +172,8 @@ public class CardPaymentPage {
     /**
      * Отклоненная операция по карте DECLINED.
      */
-    public void unsuccessfulCardOperation() {
+    @Step("Verify that error notification is displayed for declined card")
+    public void checkErrorNotification() {
         errorNotification.shouldBe(Condition.visible, Duration.ofSeconds(15));
         successNotification.shouldNotBe(Condition.visible);
 

@@ -35,7 +35,7 @@ public class DataHelper {
         /**
          * Метод, который возвращает стоимость путешествия.
          */
-        public static int getCostTravel() {
+        public static int getAmountTravel() {
             return 4_500_000;
         }
 
@@ -43,7 +43,7 @@ public class DataHelper {
         /**
          * Метод, который возвращает текст ошибки "Неверный формат".
          */
-        public static String getErrorTextIncorrectFormat(){
+        public static String getErrorTextInvalidFormat(){
             return "Неверный формат";
         }
 

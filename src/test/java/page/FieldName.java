@@ -1,7 +1,7 @@
 package page;
 
 public enum FieldName {
-    NUMBER_CARD,
+    CARD_NUMBER,
     MONTH,
     YEAR,
     HOLDER,

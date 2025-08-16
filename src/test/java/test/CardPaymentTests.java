@@ -2,14 +2,13 @@ package test;
 
 import data.DataHelper;
 import data.SQLHelper;
+import io.qameta.allure.*;
 import org.junit.jupiter.api.*;
 import page.CardPaymentPage;
 import page.FieldName;
 import page.PaymentMethodPage;
 
 import static com.codeborne.selenide.Selenide.open;
-import static data.SQLHelper.getOrderEntity;
-import static data.SQLHelper.getPaymentEntity;
 
 import com.codeborne.selenide.logevents.SelenideLogger;
 import io.qameta.allure.selenide.AllureSelenide;
@@ -22,12 +21,11 @@ public class CardPaymentTests {
 
     private final String statusApproved = DataHelper.CommonValues.getStatusApproved();
     private final String statusDeclined = DataHelper.CommonValues.getStatusDeclined();
-    private final int costTravel = DataHelper.CommonValues.getCostTravel();
+    private final int amountTravel = DataHelper.CommonValues.getAmountTravel();
     private final String errorTextRequiredField = DataHelper.CommonValues.getErrorTextRequiredField();
-    private final String errorTextIncorrectFormat = DataHelper.CommonValues.getErrorTextIncorrectFormat();
+    private final String errorTextInvalidFormat = DataHelper.CommonValues.getErrorTextInvalidFormat();
     private final String errorTextExpirationDateIncorrect = DataHelper.CommonValues.getErrorTextExpirationDateIsIncorrect();
-    private final String getErrorTextCardExpired = DataHelper.CommonValues.getErrorTextCardExpired();
-
+    private final String errorTextCardExpired = DataHelper.CommonValues.getErrorTextCardExpired();
 
 
     @BeforeAll
@@ -49,59 +47,84 @@ public class CardPaymentTests {
         cardPage = mainPage.selectCardPayment();
     }
 
-    /*@AfterEach
-    void deleteData() {
-        SQLHelper.cleanDatabase();}*/
+    @BeforeEach
+    void deleteData(TestInfo testInfo) {
+        if(testInfo.getTags().contains("CleanDB")) {
+            SQLHelper.cleanDatabase();
+        }
+    }
 
 
     @Test
-    @DisplayName("Should submit the form successfully when an approved card number is provided")
-    void shouldSubmitFormSuccessfullyWithApprovedCardNumber() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Number Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.BLOCKER)
+    @Tag("CleanDB")
+    @Tag("Positive")
+    @Tag("CardNumber")
+    @DisplayName("Should process purchase with an approved card successfully")
+    @Description("Validates that when a user enters a valid approved card, the payment is processed successfully and recorded in the database.")
+    void shouldAcceptFormWhenCardNumberIsApproved() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth();
         String year = DataHelper.CardYear.generateYearOffset(1);
         String holder = DataHelper.Holder.validHolder();
         String cvc = DataHelper.CommonValues.generateDigits(3);
+
+
         cardPage.fillCardForm(cardNumber, month, year, holder, cvc);
         cardPage.clickContinueButton();
-        cardPage.sendRequestToBank();;
-        cardPage.successfulCardOperation();
+        cardPage.sendRequestToBank();
+        cardPage.checkSuccessNotification();
 
-        SQLHelper.PaymentEntity payment = getPaymentEntity();
-        SQLHelper.OrderEntity order = getOrderEntity();
-
-        Assertions.assertEquals(statusApproved, payment.getStatus());
-        Assertions.assertEquals(costTravel, payment.getAmount());
-        Assertions.assertEquals(payment.getTransactionId(), order.getPaymentId());
-
+        SQLHelper.checkPaymentStatus(statusApproved);
+        SQLHelper.checkPaymentAmount(amountTravel);
+        SQLHelper.checkOrderLinkedToPayment();
     }
 
+
     @Test
-    @DisplayName("Should submit the form successfully when a declined card number is provided")
-    void shouldSubmitFormSuccessfullyWithDeclinedCardNumber() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Number Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.BLOCKER)
+    @DisplayName("Should display bank-decline notification when the card number is the declined test card")
+    @Tag("CleanDB")
+    @Tag("Positive")
+    @Tag("CardNumber")
+    void shouldShowDeclineNotificationWhenCardNumberIsDeclined() {
         String cardNumber = DataHelper.CardNumber.declinedCardNumber();
         String month = DataHelper.Month.validMonth();
         String year = DataHelper.CardYear.generateYearOffset(1);
         String holder = DataHelper.Holder.validHolder();
         String cvc = DataHelper.CommonValues.generateDigits(3);
+
         cardPage.fillCardForm(cardNumber, month, year, holder, cvc);
         cardPage.clickContinueButton();
-        cardPage.sendRequestToBank();;
-        cardPage.unsuccessfulCardOperation();
+        cardPage.sendRequestToBank();
+        cardPage.checkErrorNotification();
 
 
-        SQLHelper.PaymentEntity payment = getPaymentEntity();
-        SQLHelper.OrderEntity order = getOrderEntity();
-
-        Assertions.assertEquals(statusDeclined, payment.getStatus());
-        Assertions.assertEquals(costTravel, payment.getAmount());
-        Assertions.assertEquals(payment.getTransactionId(), order.getPaymentId());
+        SQLHelper.checkPaymentStatus(statusDeclined);
+        SQLHelper.checkPaymentAmount(amountTravel);
+        SQLHelper.checkOrderLinkedToPayment();
     }
 
 
     @Test
-    @DisplayName("Entering 15-digit card number should be rejected")
-    void shouldFailWith15DigitCardNumber() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Number Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should display validation error when card number has 15 digits")
+    @Tag("CleanDB")
+    @Tag("Negative")
+    @Tag("CardNumber")
+    void shouldShowInvalidFormatWhenCardNumberIs15Digits() {
         String invalidCardNumber = DataHelper.CommonValues.generateDigits(15);
         String month = DataHelper.Month.validMonth();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -110,23 +133,40 @@ public class CardPaymentTests {
 
         cardPage.fillCardForm(invalidCardNumber, month, year, holder, cvc);
         cardPage.clickContinueButton();
-        cardPage.searchError(FieldName.NUMBER_CARD, errorTextIncorrectFormat);
+        cardPage.searchError(FieldName.CARD_NUMBER, errorTextInvalidFormat);
 
+        SQLHelper.assertNoOrders();
+        SQLHelper.assertNoPayments();
     }
 
     @Test
-    @DisplayName("Should trim the 17th digit of the card number")
-    void shouldTrim17DigitCardNumber() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Number Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should keep only 16 digits when user attempts to enter 17 digits")
+    @Tag("Negative")
+    @Tag("CardNumber")
+    void shouldTrimCardNumberWhenEntering17Digits() {
         String invalidCardNumber = DataHelper.CommonValues.generateDigits(17);
         String expectedCardNumber = DataHelper.CardNumber.trimTo16Digits(invalidCardNumber);
-        cardPage.fillOneField(FieldName.NUMBER_CARD, invalidCardNumber);
-        cardPage.checkFieldValue(FieldName.NUMBER_CARD, expectedCardNumber);
+        cardPage.fillOneField(FieldName.CARD_NUMBER, invalidCardNumber);
+        cardPage.checkFieldValue(FieldName.CARD_NUMBER, expectedCardNumber);
 
     }
 
     @Test
-    @DisplayName("Entering all zeros in card number should be rejected")
-    void shouldFailWithAllZerosInCardNumber() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Number Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should display 'Invalid format' when card number is '0000 0000 0000 0000'")
+    @Tag("CleanDB")
+    @Tag("Negative")
+    @Tag("CardNumber")
+    void shouldShowInvalidFormatWhenCardNumberIsAllZeros() {
         String invalidCardNumber = DataHelper.CardNumber.invalidCardNumberAllZeros();
         String month = DataHelper.Month.validMonth();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -135,49 +175,88 @@ public class CardPaymentTests {
 
         cardPage.fillCardForm(invalidCardNumber, month, year, holder, cvc);
         cardPage.clickContinueButton();
-        cardPage.searchError(FieldName.NUMBER_CARD, errorTextIncorrectFormat);
+        cardPage.searchError(FieldName.CARD_NUMBER, errorTextInvalidFormat);
+
+        SQLHelper.assertNoOrders();
+        SQLHelper.assertNoPayments();
     }
 
     @Test
-    @DisplayName("The card number must remain blank after entering the latin")
-    void shouldClearCardNumberFieldWhenEnteringLatin() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Number Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should leave card number empty when entering Latin letters")
+    @Tag("Negative")
+    @Tag("CardNumber")
+    void shouldRejectLatinLettersInCardNumber() {
         String invalidCardNumber = DataHelper.CommonValues.generateLetters(16);
         String expectedCardNumber = DataHelper.CommonValues.getValueEmpty();
-        cardPage.fillOneField(FieldName.NUMBER_CARD, invalidCardNumber);
-        cardPage.checkFieldValue(FieldName.NUMBER_CARD, expectedCardNumber);
+        cardPage.fillOneField(FieldName.CARD_NUMBER, invalidCardNumber);
+        cardPage.checkFieldValue(FieldName.CARD_NUMBER, expectedCardNumber);
     }
 
     @Test
-    @DisplayName("The card number must remain blank after entering the cyrillic")
-    void shouldClearCardNumberFieldWhenEnteringCyrillic() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Number Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should leave card number empty when entering Cyrillic letters")
+    @Tag("Negative")
+    @Tag("CardNumber")
+    void shouldRejectCyrillicInCardNumber() {
         String invalidCardNumber = DataHelper.CommonValues.invalidValueCyrillic(16);
         String expectedCardNumber = DataHelper.CommonValues.getValueEmpty();
-        cardPage.fillOneField(FieldName.NUMBER_CARD, invalidCardNumber);
-        cardPage.checkFieldValue(FieldName.NUMBER_CARD, expectedCardNumber);
+        cardPage.fillOneField(FieldName.CARD_NUMBER, invalidCardNumber);
+        cardPage.checkFieldValue(FieldName.CARD_NUMBER, expectedCardNumber);
     }
 
     @Test
-    @DisplayName("The card number must remain blank after entering the symbols")
-    void shouldClearCardNumberFieldWhenEnteringSymbols() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Number Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should leave card number empty when entering symbols/special characters")
+    @Tag("Negative")
+    @Tag("CardNumber")
+    void shouldRejectSymbolsInCardNumber() {
         String invalidCardNumber = DataHelper.CommonValues.invalidValueSymbols(16);
         String expectedCardNumber = DataHelper.CommonValues.getValueEmpty();
-        cardPage.fillOneField(FieldName.NUMBER_CARD, invalidCardNumber);
-        cardPage.checkFieldValue(FieldName.NUMBER_CARD, expectedCardNumber);
+        cardPage.fillOneField(FieldName.CARD_NUMBER, invalidCardNumber);
+        cardPage.checkFieldValue(FieldName.CARD_NUMBER, expectedCardNumber);
     }
 
 
     @Test
-    @DisplayName("The card number must remain blank after entering the space")
-    void shouldClearCardNumberFieldWhenEnteringSpace() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Number Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should leave card number empty when entering only spaces")
+    @Tag("Negative")
+    @Tag("CardNumber")
+    void shouldRejectSpacesInCardNumber() {
         String invalidCardNumber = DataHelper.CommonValues.invalidValueSpace();
         String expectedCardNumber = DataHelper.CommonValues.getValueEmpty();
-        cardPage.fillOneField(FieldName.NUMBER_CARD, invalidCardNumber);
-        cardPage.checkFieldValue(FieldName.NUMBER_CARD, expectedCardNumber);
+        cardPage.fillOneField(FieldName.CARD_NUMBER, invalidCardNumber);
+        cardPage.checkFieldValue(FieldName.CARD_NUMBER, expectedCardNumber);
     }
 
     @Test
-    @DisplayName("Entering empty in card number should be rejected")
-    void shouldFailWithEmptyInCardNumber() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Number Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should display required-field error when card number is empty")
+    @Tag("CleanDB")
+    @Tag("Negative")
+    @Tag("CardNumber")
+    void shouldShowRequiredErrorForEmptyCardNumber() {
         String invalidCardNumber = DataHelper.CommonValues.getValueEmpty();
         String month = DataHelper.Month.validMonth();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -186,13 +265,24 @@ public class CardPaymentTests {
 
         cardPage.fillCardForm(invalidCardNumber, month, year, holder, cvc);
         cardPage.clickContinueButton();
-        cardPage.searchError(FieldName.NUMBER_CARD, errorTextRequiredField);
+        cardPage.searchError(FieldName.CARD_NUMBER, errorTextRequiredField);
+
+        SQLHelper.assertNoOrders();
+        SQLHelper.assertNoPayments();
     }
 
 
     @Test
-    @DisplayName("Verifies that the payment form accepts a card with the current month and current year as valid expiration date")
-    void shouldAcceptCardWithCurrentMonthAndYear(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Month Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.BLOCKER)
+    @DisplayName("Should accept the form when expiration month is current month and year")
+    @Tag("CleanDB")
+    @Tag("Positive")
+    @Tag("Month")
+    void shouldAcceptFormWhenMonthIsCurrentMonthCurrentYear() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String validMonth = DataHelper.Month.validCurrentMonth();
         String year = DataHelper.CardYear.generateYearOffset(0);
@@ -202,20 +292,27 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, validMonth, year, holder, cvc);
         cardPage.clickContinueButton();
         cardPage.sendRequestToBank();
-        cardPage.successfulCardOperation();
+        cardPage.checkSuccessNotification();
 
-        SQLHelper.PaymentEntity payment = getPaymentEntity();
-        SQLHelper.OrderEntity order = getOrderEntity();
+        SQLHelper.checkPaymentStatus(statusApproved);
+        SQLHelper.checkPaymentAmount(amountTravel);
+        SQLHelper.checkOrderLinkedToPayment();
 
-        Assertions.assertEquals(statusApproved, payment.getStatus());
-        Assertions.assertEquals(costTravel, payment.getAmount());
-        Assertions.assertEquals(payment.getTransactionId(), order.getPaymentId());
+
     }
 
 
     @Test
-    @DisplayName("Should accept card with expires month January (01)")
-    void shouldAcceptCardWithJanuaryAsExpiresMonth(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Month Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should accept the form when expiration month is '01'")
+    @Tag("CleanDB")
+    @Tag("Positive")
+    @Tag("Month")
+    void shouldAcceptFormWhenMonthIs01() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String validMonth = DataHelper.Month.validMonth01();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -225,19 +322,24 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, validMonth, year, holder, cvc);
         cardPage.clickContinueButton();
         cardPage.sendRequestToBank();
-        cardPage.successfulCardOperation();
+        cardPage.checkSuccessNotification();
 
-        SQLHelper.PaymentEntity payment = getPaymentEntity();
-        SQLHelper.OrderEntity order = getOrderEntity();
-
-        Assertions.assertEquals(statusApproved, payment.getStatus());
-        Assertions.assertEquals(costTravel, payment.getAmount());
-        Assertions.assertEquals(payment.getTransactionId(), order.getPaymentId());
+        SQLHelper.checkPaymentStatus(statusApproved);
+        SQLHelper.checkPaymentAmount(amountTravel);
+        SQLHelper.checkOrderLinkedToPayment();
     }
 
     @Test
-    @DisplayName("Should accept card with expires month December (12)")
-    void shouldAcceptCardWithDecemberAsExpiresMonth(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Month Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should accept the form when expiration month is '12'")
+    @Tag("CleanDB")
+    @Tag("Positive")
+    @Tag("Month")
+    void shouldAcceptFormWhenMonthIs12() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String validMonth = DataHelper.Month.validMonth12();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -247,19 +349,24 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, validMonth, year, holder, cvc);
         cardPage.clickContinueButton();
         cardPage.sendRequestToBank();
-        cardPage.successfulCardOperation();
+        cardPage.checkSuccessNotification();
 
-        SQLHelper.PaymentEntity payment = getPaymentEntity();
-        SQLHelper.OrderEntity order = getOrderEntity();
-
-        Assertions.assertEquals(statusApproved, payment.getStatus());
-        Assertions.assertEquals(costTravel, payment.getAmount());
-        Assertions.assertEquals(payment.getTransactionId(), order.getPaymentId());
+        SQLHelper.checkPaymentStatus(statusApproved);
+        SQLHelper.checkPaymentAmount(amountTravel);
+        SQLHelper.checkOrderLinkedToPayment();
     }
 
     @Test
-    @DisplayName("Should reject card with previous month of the current year")
-    void shouldRejectCardWithPreviousMonthOfCurrentYear(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Month Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should display expiration-date error when month is previous month in current year")
+    @Tag("CleanDB")
+    @Tag("Negative")
+    @Tag("Month")
+    void shouldShowCardExpirationErrorWhenMonthIsPreviousInCurrentYear() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String invalidMonth = DataHelper.Month.invalidMonthCurrentMonthMinus1();
         String year = DataHelper.CardYear.generateYearOffset(0);
@@ -268,12 +375,22 @@ public class CardPaymentTests {
 
         cardPage.fillCardForm(cardNumber, invalidMonth, year, holder, cvc);
         cardPage.clickContinueButton();
-        cardPage.searchError(FieldName.MONTH, getErrorTextCardExpired);
+        cardPage.searchError(FieldName.MONTH, errorTextCardExpired);
+
+        SQLHelper.assertNoOrders();
+        SQLHelper.assertNoPayments();
     }
 
     @Test
-    @DisplayName("Verifies that the 'Month' field automatically trims the input to two digits when the user enters three digits")
-    void shouldTrimMonthFieldToTwoDigits(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Month Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should keep only first two digits when user enters 3 digits into month")
+    @Tag("Negative")
+    @Tag("Month")
+    void shouldTrimMonthWhenEnteringThreeDigits() {
         String invalidMonth = DataHelper.CommonValues.generateDigits(3);
         String expectedMonth = DataHelper.CommonValues.truncateToMaxLength(invalidMonth, 2);
         cardPage.fillOneField(FieldName.MONTH, invalidMonth);
@@ -282,8 +399,16 @@ public class CardPaymentTests {
     }
 
     @Test
-    @DisplayName("Error 'Invalid format' when entering a single digit in the 'Month' field")
-    void shouldRejectMonthFieldWithOneDigit() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Month Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should display 'Invalid format' when month contains one digit")
+    @Tag("CleanDB")
+    @Tag("Negative")
+    @Tag("Month")
+    void shouldShowInvalidFormatWhenMonthIsOneDigit() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String invalidMonth = DataHelper.CommonValues.generateDigits(1);
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -292,13 +417,24 @@ public class CardPaymentTests {
 
         cardPage.fillCardForm(cardNumber, invalidMonth, year, holder, cvc);
         cardPage.clickContinueButton();
-        cardPage.searchError(FieldName.MONTH, errorTextIncorrectFormat);
+        cardPage.searchError(FieldName.MONTH, errorTextInvalidFormat);
+
+        SQLHelper.assertNoOrders();
+        SQLHelper.assertNoPayments();
 
     }
 
     @Test
-    @DisplayName("Show error for month value '00'")
-    void shouldShowErrorForMonthValueZeroZero() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Month Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should display expiration-date error when month is '00'")
+    @Tag("CleanDB")
+    @Tag("Negative")
+    @Tag("Month")
+    void shouldShowCardExpirationErrorWhenMonthIs00() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String invalidMonth = DataHelper.Month.invalidMonth00();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -308,11 +444,22 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, invalidMonth, year, holder, cvc);
         cardPage.clickContinueButton();
         cardPage.searchError(FieldName.MONTH, errorTextExpirationDateIncorrect);
+
+        SQLHelper.assertNoOrders();
+        SQLHelper.assertNoPayments();
     }
 
     @Test
-    @DisplayName("Show error for month value '13'")
-    void shouldShowErrorForMonthValueThirteen() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Month Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should display expiration-date error when month is '13'")
+    @Tag("CleanDB")
+    @Tag("Negative")
+    @Tag("Month")
+    void shouldShowCardExpirationErrorWhenMonthIs13() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String invalidMonth = DataHelper.Month.invalidMonth13();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -322,11 +469,21 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, invalidMonth, year, holder, cvc);
         cardPage.clickContinueButton();
         cardPage.searchError(FieldName.MONTH, errorTextExpirationDateIncorrect);
+
+        SQLHelper.assertNoOrders();
+        SQLHelper.assertNoPayments();
     }
 
     @Test
-    @DisplayName("The month field must remain blank after entering the latin")
-    void shouldClearMonthFieldWhenEnteringLatin(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Month Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should leave month field empty when entering Latin letters")
+    @Tag("Negative")
+    @Tag("Month")
+    void shouldRejectLatinLettersInMonth() {
         String invalidMonth = DataHelper.CommonValues.generateLetters(2);
         String expectedMonth = DataHelper.CommonValues.getValueEmpty();
 
@@ -336,8 +493,15 @@ public class CardPaymentTests {
 
 
     @Test
-    @DisplayName("The month field must remain blank after entering the cyrillic")
-    void shouldClearMonthFieldWhenEnteringCyrillic(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Month Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should leave month field empty when entering Cyrillic letters")
+    @Tag("Negative")
+    @Tag("Month")
+    void shouldRejectCyrillicInMonth() {
         String invalidMonth = DataHelper.CommonValues.invalidValueCyrillic(2);
         String expectedMonth = DataHelper.CommonValues.getValueEmpty();
 
@@ -346,8 +510,15 @@ public class CardPaymentTests {
     }
 
     @Test
-    @DisplayName("The month field must remain blank after entering the symbols")
-    void shouldClearMonthFieldWhenEnteringSymbols(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Month Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should leave month field empty when entering symbols in month")
+    @Tag("Negative")
+    @Tag("Month")
+    void shouldRejectSymbolsInMonth() {
         String invalidMonth = DataHelper.CommonValues.invalidValueSymbols(2);
         String expectedMonth = DataHelper.CommonValues.getValueEmpty();
 
@@ -356,8 +527,15 @@ public class CardPaymentTests {
     }
 
     @Test
-    @DisplayName("The month field must remain blank after entering the space")
-    void shouldClearMonthFieldWhenEnteringSpace(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Month Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should leave month field empty when entering only spaces in month")
+    @Tag("Negative")
+    @Tag("Month")
+    void shouldRejectSpacesInMonth() {
         String invalidMonth = DataHelper.CommonValues.invalidValueSpace();
         String expectedMonth = DataHelper.CommonValues.getValueEmpty();
 
@@ -366,8 +544,16 @@ public class CardPaymentTests {
     }
 
     @Test
-    @DisplayName("Entering empty in month should be rejected")
-    void shouldFailWithEmptyInMonthField() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Month Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should display required-field error when month is empty")
+    @Tag("CleanDB")
+    @Tag("Negative")
+    @Tag("Month")
+    void shouldShowRequiredErrorForEmptyMonth() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String invalidMonth = DataHelper.CommonValues.getValueEmpty();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -377,14 +563,23 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, invalidMonth, year, holder, cvc);
         cardPage.clickContinueButton();
         cardPage.searchError(FieldName.MONTH, errorTextRequiredField);
+
+        SQLHelper.assertNoOrders();
+        SQLHelper.assertNoPayments();
     }
 
 
-
-
     @Test
-    @DisplayName("Verifies that the payment form accepts a card with the current year as valid expiration date")
-    void shouldAcceptCardWithCurrentYear(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Year Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should accept the form when expiration year is the current year")
+    @Tag("CleanDB")
+    @Tag("Positive")
+    @Tag("Year")
+    void shouldAcceptFormWhenYearIsCurrentYear() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth12();
         String validYear = DataHelper.CardYear.generateYearOffset(0);
@@ -394,19 +589,24 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, month, validYear, holder, cvc);
         cardPage.clickContinueButton();
         cardPage.sendRequestToBank();
-        cardPage.successfulCardOperation();
+        cardPage.checkSuccessNotification();
 
-        SQLHelper.PaymentEntity payment = getPaymentEntity();
-        SQLHelper.OrderEntity order = getOrderEntity();
-
-        Assertions.assertEquals(statusApproved, payment.getStatus());
-        Assertions.assertEquals(costTravel, payment.getAmount());
-        Assertions.assertEquals(payment.getTransactionId(), order.getPaymentId());
+        SQLHelper.checkPaymentStatus(statusApproved);
+        SQLHelper.checkPaymentAmount(amountTravel);
+        SQLHelper.checkOrderLinkedToPayment();
     }
 
     @Test
-    @DisplayName("")
-    void shouldAcceptCardWithCurrentYearPlusFour(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Year Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should accept the form when expiration year is current year + 4")
+    @Tag("CleanDB")
+    @Tag("Positive")
+    @Tag("Year")
+    void shouldAcceptFormWhenYearIsCurrentPlus4() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth();
         String validYear = DataHelper.CardYear.generateYearOffset(4);
@@ -416,19 +616,24 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, month, validYear, holder, cvc);
         cardPage.clickContinueButton();
         cardPage.sendRequestToBank();
-        cardPage.successfulCardOperation();
+        cardPage.checkSuccessNotification();
 
-        SQLHelper.PaymentEntity payment = getPaymentEntity();
-        SQLHelper.OrderEntity order = getOrderEntity();
-
-        Assertions.assertEquals(statusApproved, payment.getStatus());
-        Assertions.assertEquals(costTravel, payment.getAmount());
-        Assertions.assertEquals(payment.getTransactionId(), order.getPaymentId());
+        SQLHelper.checkPaymentStatus(statusApproved);
+        SQLHelper.checkPaymentAmount(amountTravel);
+        SQLHelper.checkOrderLinkedToPayment();
     }
 
     @Test
-    @DisplayName("")
-    void shouldAcceptCardWithCurrentYearPlusFive(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Year Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should accept the form when expiration year is current year + 5")
+    @Tag("CleanDB")
+    @Tag("Positive")
+    @Tag("Year")
+    void shouldAcceptFormWhenYearIsCurrentPlus5() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth();
         String validYear = DataHelper.CardYear.generateYearOffset(5);
@@ -438,19 +643,24 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, month, validYear, holder, cvc);
         cardPage.clickContinueButton();
         cardPage.sendRequestToBank();
-        cardPage.successfulCardOperation();
+        cardPage.checkSuccessNotification();
 
-        SQLHelper.PaymentEntity payment = getPaymentEntity();
-        SQLHelper.OrderEntity order = getOrderEntity();
-
-        Assertions.assertEquals(statusApproved, payment.getStatus());
-        Assertions.assertEquals(costTravel, payment.getAmount());
-        Assertions.assertEquals(payment.getTransactionId(), order.getPaymentId());
+        SQLHelper.checkPaymentStatus(statusApproved);
+        SQLHelper.checkPaymentAmount(amountTravel);
+        SQLHelper.checkOrderLinkedToPayment();
     }
 
     @Test
-    @DisplayName("")
-    void shouldRejectCardWithPreviousYear(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Year Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should display card expired error when year is in the past")
+    @Tag("CleanDB")
+    @Tag("Negative")
+    @Tag("Year")
+    void shouldShowExpiredErrorWhenYearIsPrevious() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth();
         String invalidYear = DataHelper.CardYear.generateYearOffset(-1);
@@ -459,12 +669,22 @@ public class CardPaymentTests {
 
         cardPage.fillCardForm(cardNumber, month, invalidYear, holder, cvc);
         cardPage.clickContinueButton();
-        cardPage.searchError(FieldName.YEAR, getErrorTextCardExpired);
+        cardPage.searchError(FieldName.YEAR, errorTextCardExpired);
+
+        SQLHelper.assertNoOrders();
+        SQLHelper.assertNoPayments();
     }
 
     @Test
-    @DisplayName("")
-    void shouldTrimYearFieldToTwoDigits(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Year Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should keep only first two digits when user enters 3 digits into year")
+    @Tag("Negative")
+    @Tag("Year")
+    void shouldTrimYearWhenEnteringThreeDigits() {
         String invalidYear = DataHelper.CommonValues.generateDigits(3);
         String expectedYear = DataHelper.CommonValues.truncateToMaxLength(invalidYear, 2);
 
@@ -474,8 +694,16 @@ public class CardPaymentTests {
     }
 
     @Test
-    @DisplayName("")
-    void shouldRejectYearFieldWithOneDigit() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Year Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should display 'Invalid format' when year contains one digit")
+    @Tag("CleanDB")
+    @Tag("Negative")
+    @Tag("Year")
+    void shouldShowInvalidFormatWhenYearIsOneDigit() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth();
         String invalidYear = DataHelper.CommonValues.generateDigits(1);
@@ -484,13 +712,24 @@ public class CardPaymentTests {
 
         cardPage.fillCardForm(cardNumber, month, invalidYear, holder, cvc);
         cardPage.clickContinueButton();
-        cardPage.searchError(FieldName.YEAR, errorTextIncorrectFormat);
+        cardPage.searchError(FieldName.YEAR, errorTextInvalidFormat);
+
+        SQLHelper.assertNoOrders();
+        SQLHelper.assertNoPayments();
 
     }
 
     @Test
-    @DisplayName("")
-    void shouldShowErrorForYearValueCurrentPlusSix() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Year Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should display expiration-date error when year is current year + 6")
+    @Tag("CleanDB")
+    @Tag("Negative")
+    @Tag("Year")
+    void shouldShowCardExpirationErrorWhenYearIsCurrentPlus6() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth();
         String invalidYear = DataHelper.CardYear.generateYearOffset(6);
@@ -500,11 +739,21 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, month, invalidYear, holder, cvc);
         cardPage.clickContinueButton();
         cardPage.searchError(FieldName.YEAR, errorTextExpirationDateIncorrect);
+
+        SQLHelper.assertNoOrders();
+        SQLHelper.assertNoPayments();
     }
 
     @Test
-    @DisplayName("")
-    void shouldClearYearFieldWhenEnteringLatin(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Year Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should leave year field empty when entering Latin letters")
+    @Tag("Negative")
+    @Tag("Year")
+    void shouldRejectLatinLettersInYear() {
         String invalidYear = DataHelper.CommonValues.generateLetters(2);
         String expectedYear = DataHelper.CommonValues.getValueEmpty();
 
@@ -514,8 +763,15 @@ public class CardPaymentTests {
 
 
     @Test
-    @DisplayName("")
-    void shouldClearYearFieldWhenEnteringCyrillic(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Year Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should leave year field empty when entering Cyrillic letters")
+    @Tag("Negative")
+    @Tag("Year")
+    void shouldRejectCyrillicInYear() {
         String invalidYear = DataHelper.CommonValues.invalidValueCyrillic(2);
         String expectedYear = DataHelper.CommonValues.getValueEmpty();
 
@@ -524,8 +780,15 @@ public class CardPaymentTests {
     }
 
     @Test
-    @DisplayName("")
-    void shouldClearYearFieldWhenEnteringSymbols(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Year Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should leave year field empty when entering symbols in year")
+    @Tag("Negative")
+    @Tag("Year")
+    void shouldRejectSymbolsInYear() {
         String invalidYear = DataHelper.CommonValues.invalidValueSymbols(2);
         String expectedYear = DataHelper.CommonValues.getValueEmpty();
 
@@ -534,8 +797,15 @@ public class CardPaymentTests {
     }
 
     @Test
-    @DisplayName("")
-    void shouldClearYearFieldWhenEnteringSpace(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Year Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should leave year field empty when entering only spaces in year")
+    @Tag("Negative")
+    @Tag("Year")
+    void shouldRejectSpacesInYear() {
         String invalidYear = DataHelper.CommonValues.invalidValueSpace();
         String expectedYear = DataHelper.CommonValues.getValueEmpty();
 
@@ -545,8 +815,16 @@ public class CardPaymentTests {
 
 
     @Test
-    @DisplayName("")
-    void shouldFailWithEmptyInYearField() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Year Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should display required-field error when year is empty")
+    @Tag("CleanDB")
+    @Tag("Negative")
+    @Tag("Year")
+    void shouldShowRequiredErrorForEmptyYear() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth();
         String invalidYear = DataHelper.CommonValues.getValueEmpty();
@@ -556,13 +834,23 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, month, invalidYear, holder, cvc);
         cardPage.clickContinueButton();
         cardPage.searchError(FieldName.YEAR, errorTextRequiredField);
+
+        SQLHelper.assertNoOrders();
+        SQLHelper.assertNoPayments();
     }
 
 
-
     @Test
-    @DisplayName("")
-    void shouldAcceptCardWithHyphenatedName(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Holder Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should accept holder name containing a hyphen")
+    @Tag("CleanDB")
+    @Tag("Positive")
+    @Tag("Holder")
+    void shouldAcceptHolderWithHyphen() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -572,19 +860,24 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, month, year, validHolder, cvc);
         cardPage.clickContinueButton();
         cardPage.sendRequestToBank();
-        cardPage.successfulCardOperation();
+        cardPage.checkSuccessNotification();
 
-        SQLHelper.PaymentEntity payment = getPaymentEntity();
-        SQLHelper.OrderEntity order = getOrderEntity();
-
-        Assertions.assertEquals(statusApproved, payment.getStatus());
-        Assertions.assertEquals(costTravel, payment.getAmount());
-        Assertions.assertEquals(payment.getTransactionId(), order.getPaymentId());
+        SQLHelper.checkPaymentStatus(statusApproved);
+        SQLHelper.checkPaymentAmount(amountTravel);
+        SQLHelper.checkOrderLinkedToPayment();
     }
 
     @Test
-    @DisplayName("")
-    void shouldAcceptCardWithApostropheName(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Holder Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should accept holder name containing an apostrophe")
+    @Tag("CleanDB")
+    @Tag("Positive")
+    @Tag("Holder")
+    void shouldAcceptHolderWithApostrophe() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -594,19 +887,24 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, month, year, validHolder, cvc);
         cardPage.clickContinueButton();
         cardPage.sendRequestToBank();
-        cardPage.successfulCardOperation();
+        cardPage.checkSuccessNotification();
 
-        SQLHelper.PaymentEntity payment = getPaymentEntity();
-        SQLHelper.OrderEntity order = getOrderEntity();
-
-        Assertions.assertEquals(statusApproved, payment.getStatus());
-        Assertions.assertEquals(costTravel, payment.getAmount());
-        Assertions.assertEquals(payment.getTransactionId(), order.getPaymentId());
+        SQLHelper.checkPaymentStatus(statusApproved);
+        SQLHelper.checkPaymentAmount(amountTravel);
+        SQLHelper.checkOrderLinkedToPayment();
     }
 
     @Test
-    @DisplayName("")
-    void shouldAcceptCardWithMultipleNames(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Holder Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should accept holder name containing multiple parts")
+    @Tag("CleanDB")
+    @Tag("Positive")
+    @Tag("Holder")
+    void shouldAcceptHolderWithMultipleParts() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -616,19 +914,24 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, month, year, validHolder, cvc);
         cardPage.clickContinueButton();
         cardPage.sendRequestToBank();
-        cardPage.successfulCardOperation();
+        cardPage.checkSuccessNotification();
 
-        SQLHelper.PaymentEntity payment = getPaymentEntity();
-        SQLHelper.OrderEntity order = getOrderEntity();
-
-        Assertions.assertEquals(statusApproved, payment.getStatus());
-        Assertions.assertEquals(costTravel, payment.getAmount());
-        Assertions.assertEquals(payment.getTransactionId(), order.getPaymentId());
+        SQLHelper.checkPaymentStatus(statusApproved);
+        SQLHelper.checkPaymentAmount(amountTravel);
+        SQLHelper.checkOrderLinkedToPayment();
     }
 
     @Test
-    @DisplayName("")
-    void shouldAcceptCardWithHolderNameTwoLettersSeparatedSpace(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Holder Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should accept minimal valid holder value (two letters separated by space)")
+    @Tag("CleanDB")
+    @Tag("Positive")
+    @Tag("Holder")
+    void shouldAcceptHolderTwoLettersAndSpaceAsMinimum() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -638,19 +941,24 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, month, year, validHolder, cvc);
         cardPage.clickContinueButton();
         cardPage.sendRequestToBank();
-        cardPage.successfulCardOperation();
+        cardPage.checkSuccessNotification();
 
-        SQLHelper.PaymentEntity payment = getPaymentEntity();
-        SQLHelper.OrderEntity order = getOrderEntity();
-
-        Assertions.assertEquals(statusApproved, payment.getStatus());
-        Assertions.assertEquals(costTravel, payment.getAmount());
-        Assertions.assertEquals(payment.getTransactionId(), order.getPaymentId());
+        SQLHelper.checkPaymentStatus(statusApproved);
+        SQLHelper.checkPaymentAmount(amountTravel);
+        SQLHelper.checkOrderLinkedToPayment();
     }
 
     @Test
-    @DisplayName("")
-    void shouldAcceptCardWithHolderNameThreeLettersSeparatedSpace(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Holder Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should accept boundary minimal valid holder (three letters + space)")
+    @Tag("CleanDB")
+    @Tag("Positive")
+    @Tag("Holder")
+    void shouldAcceptHolderThreeLettersAndSpaceAsBoundary() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -660,19 +968,24 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, month, year, validHolder, cvc);
         cardPage.clickContinueButton();
         cardPage.sendRequestToBank();
-        cardPage.successfulCardOperation();
+        cardPage.checkSuccessNotification();
 
-        SQLHelper.PaymentEntity payment = getPaymentEntity();
-        SQLHelper.OrderEntity order = getOrderEntity();
-
-        Assertions.assertEquals(statusApproved, payment.getStatus());
-        Assertions.assertEquals(costTravel, payment.getAmount());
-        Assertions.assertEquals(payment.getTransactionId(), order.getPaymentId());
+        SQLHelper.checkPaymentStatus(statusApproved);
+        SQLHelper.checkPaymentAmount(amountTravel);
+        SQLHelper.checkOrderLinkedToPayment();
     }
 
     @Test
-    @DisplayName("")
-    void shouldAcceptCardWithHolderNameFiftyLetters(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Holder Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should accept holder value of length 50 (max allowed)")
+    @Tag("CleanDB")
+    @Tag("Positive")
+    @Tag("Holder")
+    void shouldAcceptHolderWithMax50Chars() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -682,19 +995,24 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, month, year, validHolder, cvc);
         cardPage.clickContinueButton();
         cardPage.sendRequestToBank();
-        cardPage.successfulCardOperation();
+        cardPage.checkSuccessNotification();
 
-        SQLHelper.PaymentEntity payment = getPaymentEntity();
-        SQLHelper.OrderEntity order = getOrderEntity();
-
-        Assertions.assertEquals(statusApproved, payment.getStatus());
-        Assertions.assertEquals(costTravel, payment.getAmount());
-        Assertions.assertEquals(payment.getTransactionId(), order.getPaymentId());
+        SQLHelper.checkPaymentStatus(statusApproved);
+        SQLHelper.checkPaymentAmount(amountTravel);
+        SQLHelper.checkOrderLinkedToPayment();
     }
 
     @Test
-    @DisplayName("")
-    void shouldShowErrorForHolderValueOneWord() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Holder Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should display validation error when holder is a single word (no space)")
+    @Tag("CleanDB")
+    @Tag("Negative")
+    @Tag("Holder")
+    void shouldShowInvalidFormatWhenHolderIsSingleWord() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -703,13 +1021,24 @@ public class CardPaymentTests {
 
         cardPage.fillCardForm(cardNumber, month, year, invalidHolder, cvc);
         cardPage.clickContinueButton();
-        cardPage.searchError(FieldName.HOLDER, errorTextIncorrectFormat);
+        cardPage.searchError(FieldName.HOLDER, errorTextInvalidFormat);
+
+        SQLHelper.assertNoOrders();
+        SQLHelper.assertNoPayments();
     }
 
 
     @Test
-    @DisplayName("")
-    void shouldShowErrorForHolderValueTwoLetters() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Holder Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should display validation error when holder length is less than minimal allowed")
+    @Tag("CleanDB")
+    @Tag("Negative")
+    @Tag("Holder")
+    void shouldShowInvalidFormatWhenHolderTooShort() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -718,13 +1047,23 @@ public class CardPaymentTests {
 
         cardPage.fillCardForm(cardNumber, month, year, invalidHolder, cvc);
         cardPage.clickContinueButton();
-        cardPage.searchError(FieldName.HOLDER, errorTextIncorrectFormat);
+        cardPage.searchError(FieldName.HOLDER, errorTextInvalidFormat);
+
+        SQLHelper.assertNoOrders();
+        SQLHelper.assertNoPayments();
     }
 
 
     @Test
-    @DisplayName("")
-    void shouldTrimHolderFieldToFiftyLetters(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Holder Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should trim holder to 50 characters when entering more than 50 chars")
+    @Tag("Negative")
+    @Tag("Holder")
+    void shouldTrimHolderWhenEnteringMoreThan50Chars() {
         String invalidHolder = DataHelper.CommonValues.generateLetters(51);
         String expectedHolder = DataHelper.CommonValues.truncateToMaxLength(invalidHolder, 50);
 
@@ -735,8 +1074,15 @@ public class CardPaymentTests {
 
 
     @Test
-    @DisplayName("")
-    void shouldClearHolderFieldWhenEnteringCyrillic(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Holder Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should display validation error when holder contains Cyrillic characters")
+    @Tag("Negative")
+    @Tag("Holder")
+    void shouldRejectCyrillicInHolder() {
         String invalidHolder = DataHelper.CommonValues.invalidValueCyrillic(7);
         String expectedHolder = DataHelper.CommonValues.getValueEmpty();
 
@@ -745,8 +1091,15 @@ public class CardPaymentTests {
     }
 
     @Test
-    @DisplayName("")
-    void shouldClearHolderFieldWhenEnteringDigits(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Holder Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should display validation error when holder contains digits")
+    @Tag("Negative")
+    @Tag("Holder")
+    void shouldRejectDigitsInHolder() {
         String invalidHolder = DataHelper.CommonValues.generateDigits(5);
         String expectedHolder = DataHelper.CommonValues.getValueEmpty();
 
@@ -756,8 +1109,15 @@ public class CardPaymentTests {
 
 
     @Test
-    @DisplayName("")
-    void shouldClearHolderFieldWhenEnteringSymbols(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Holder Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should display validation error when holder contains special symbols")
+    @Tag("Negative")
+    @Tag("Holder")
+    void shouldRejectSymbolsInHolder() {
         String invalidHolder = DataHelper.CommonValues.invalidValueSymbols(8);
         String expectedHolder = DataHelper.CommonValues.getValueEmpty();
 
@@ -766,8 +1126,15 @@ public class CardPaymentTests {
     }
 
     @Test
-    @DisplayName("")
-    void shouldClearHolderFieldWhenEnteringSpace(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Holder Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should display required-field error when holder contains only spaces")
+    @Tag("Negative")
+    @Tag("Holder")
+    void shouldShowRequiredErrorWhenHolderIsSpacesOnly() {
         String invalidHolder = DataHelper.CommonValues.invalidValueSpace();
         String expectedHolder = DataHelper.CommonValues.getValueEmpty();
 
@@ -777,8 +1144,16 @@ public class CardPaymentTests {
 
 
     @Test
-    @DisplayName("")
-    void shouldFailWithEmptyInHolderField() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("Card Holder Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should display required-field error when holder is empty")
+    @Tag("CleanDB")
+    @Tag("Negative")
+    @Tag("Holder")
+    void shouldShowRequiredErrorForEmptyHolder() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -788,13 +1163,23 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, month, year, invalidHolder, cvc);
         cardPage.clickContinueButton();
         cardPage.searchError(FieldName.HOLDER, errorTextRequiredField);
+
+        SQLHelper.assertNoOrders();
+        SQLHelper.assertNoPayments();
     }
 
 
-
     @Test
-    @DisplayName("")
-    void shouldAcceptCardWithCVVZeroZeroZero(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("CVC Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should accept CVC value '000'")
+    @Tag("CleanDB")
+    @Tag("Positive")
+    @Tag("CVC")
+    void shouldAcceptCvc000() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -804,19 +1189,24 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, month, year, holder, validCvc);
         cardPage.clickContinueButton();
         cardPage.sendRequestToBank();
-        cardPage.successfulCardOperation();
+        cardPage.checkSuccessNotification();
 
-        SQLHelper.PaymentEntity payment = getPaymentEntity();
-        SQLHelper.OrderEntity order = getOrderEntity();
-
-        Assertions.assertEquals(statusApproved, payment.getStatus());
-        Assertions.assertEquals(costTravel, payment.getAmount());
-        Assertions.assertEquals(payment.getTransactionId(), order.getPaymentId());
+        SQLHelper.checkPaymentStatus(statusApproved);
+        SQLHelper.checkPaymentAmount(amountTravel);
+        SQLHelper.checkOrderLinkedToPayment();
     }
 
     @Test
-    @DisplayName("")
-    void shouldAcceptCardWithCVVNineNineNine(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("CVC Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should accept CVC value '999'")
+    @Tag("CleanDB")
+    @Tag("Positive")
+    @Tag("CVC")
+    void shouldAcceptCvc999() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -826,19 +1216,24 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, month, year, holder, validCvc);
         cardPage.clickContinueButton();
         cardPage.sendRequestToBank();
-        cardPage.successfulCardOperation();
+        cardPage.checkSuccessNotification();
 
-        SQLHelper.PaymentEntity payment = getPaymentEntity();
-        SQLHelper.OrderEntity order = getOrderEntity();
-
-        Assertions.assertEquals(statusApproved, payment.getStatus());
-        Assertions.assertEquals(costTravel, payment.getAmount());
-        Assertions.assertEquals(payment.getTransactionId(), order.getPaymentId());
+        SQLHelper.checkPaymentStatus(statusApproved);
+        SQLHelper.checkPaymentAmount(amountTravel);
+        SQLHelper.checkOrderLinkedToPayment();
     }
 
     @Test
-    @DisplayName("")
-    void shouldShowErrorForCVCValueTwoDigits() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("CVC Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should display 'Invalid format' when CVC contains only two digits")
+    @Tag("CleanDB")
+    @Tag("Negative")
+    @Tag("CVC")
+    void shouldShowInvalidFormatWhenCvcIsTwoDigits() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -847,12 +1242,22 @@ public class CardPaymentTests {
 
         cardPage.fillCardForm(cardNumber, month, year, holder, invalidCVC);
         cardPage.clickContinueButton();
-        cardPage.searchError(FieldName.CVC, errorTextIncorrectFormat);
+        cardPage.searchError(FieldName.CVC, errorTextInvalidFormat);
+
+        SQLHelper.assertNoOrders();
+        SQLHelper.assertNoPayments();
     }
 
     @Test
-    @DisplayName("")
-    void shouldTrimCVCFieldToThreeDigits(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("CVC Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should keep only first three digits when user enters 4 digits into CVC")
+    @Tag("Negative")
+    @Tag("CVC")
+    void shouldTrimCvcWhenEnteringFourDigits() {
         String invalidCvc = DataHelper.CommonValues.generateDigits(4);
         String expectedCvc = DataHelper.CommonValues.truncateToMaxLength(invalidCvc, 3);
 
@@ -862,40 +1267,68 @@ public class CardPaymentTests {
     }
 
     @Test
-    @DisplayName("")
-    void shouldClearCVCFieldWhenEnteringLatin(){
-        String invalidCVC = DataHelper.CommonValues.generateLetters(3);
-        String expectedCVC = DataHelper.CommonValues.getValueEmpty();
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("CVC Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should leave CVC field empty when entering Latin letters")
+    @Tag("Negative")
+    @Tag("CVC")
+    void shouldRejectLatinLettersInCvc() {
+        String invalidCvc = DataHelper.CommonValues.generateLetters(3);
+        String expectedCvc = DataHelper.CommonValues.getValueEmpty();
 
-        cardPage.fillOneField(FieldName.CVC, invalidCVC);
-        cardPage.checkFieldValue(FieldName.CVC, expectedCVC);
+        cardPage.fillOneField(FieldName.CVC, invalidCvc);
+        cardPage.checkFieldValue(FieldName.CVC, expectedCvc);
     }
 
 
     @Test
-    @DisplayName("")
-    void shouldClearCVCFieldWhenEnteringCyrillic(){
-        String invalidCVC = DataHelper.CommonValues.invalidValueCyrillic(3);
-        String expectedCVC = DataHelper.CommonValues.getValueEmpty();
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("CVC Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should leave CVC field empty when entering Cyrillic letters")
+    @Tag("Negative")
+    @Tag("CVC")
+    void shouldRejectCyrillicInCvc() {
+        String invalidCvc = DataHelper.CommonValues.invalidValueCyrillic(3);
+        String expectedCvc = DataHelper.CommonValues.getValueEmpty();
 
-        cardPage.fillOneField(FieldName.CVC, invalidCVC);
-        cardPage.checkFieldValue(FieldName.CVC, expectedCVC);
+        cardPage.fillOneField(FieldName.CVC, invalidCvc);
+        cardPage.checkFieldValue(FieldName.CVC, expectedCvc);
     }
 
 
     @Test
-    @DisplayName("")
-    void shouldClearCVCFieldWhenEnteringSymbols(){
-        String invalidCVC = DataHelper.CommonValues.invalidValueSymbols(3);
-        String expectedCVC = DataHelper.CommonValues.getValueEmpty();
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("CVC Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should leave CVC field empty when entering symbols in CVC")
+    @Tag("Negative")
+    @Tag("CVC")
+    void shouldRejectSymbolsInCvc() {
+        String invalidCvc = DataHelper.CommonValues.invalidValueSymbols(3);
+        String expectedCvc = DataHelper.CommonValues.getValueEmpty();
 
-        cardPage.fillOneField(FieldName.CVC, invalidCVC);
-        cardPage.checkFieldValue(FieldName.CVC, expectedCVC);
+        cardPage.fillOneField(FieldName.CVC, invalidCvc);
+        cardPage.checkFieldValue(FieldName.CVC, expectedCvc);
     }
 
     @Test
-    @DisplayName("")
-    void shouldClearCVCFieldWhenEnteringSpace(){
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("CVC Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.NORMAL)
+    @DisplayName("Should leave CVC field empty when entering only spaces in CVC")
+    @Tag("Negative")
+    @Tag("CVC")
+    void shouldRejectSpacesInCvc() {
         String invalidCVC = DataHelper.CommonValues.invalidValueSpace();
         String expectedCVC = DataHelper.CommonValues.getValueEmpty();
 
@@ -905,8 +1338,16 @@ public class CardPaymentTests {
 
 
     @Test
-    @DisplayName("")
-    void shouldFailWithEmptyInCVCField() {
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Story("CVC Field Validation")
+    @Owner("Veronika Obukhova")
+    @Severity(SeverityLevel.CRITICAL)
+    @DisplayName("Should display required-field error when CVC is empty")
+    @Tag("CleanDB")
+    @Tag("Negative")
+    @Tag("CVC")
+    void shouldShowRequiredErrorForEmptyCvc() {
         String cardNumber = DataHelper.CardNumber.approvedCardNumber();
         String month = DataHelper.Month.validMonth();
         String year = DataHelper.CardYear.generateYearOffset(1);
@@ -916,19 +1357,32 @@ public class CardPaymentTests {
         cardPage.fillCardForm(cardNumber, month, year, holder, invalidCVC);
         cardPage.clickContinueButton();
         cardPage.searchError(FieldName.CVC, errorTextRequiredField);
+
+        SQLHelper.assertNoOrders();
+        SQLHelper.assertNoPayments();
     }
 
     @Test
-    @DisplayName("")
+    @Epic("Payment Processing")
+    @Feature("Card Payment Form")
+    @Owner("Veronika Obukhova")
+    @Story("Required field validation")
+    @Severity(SeverityLevel.BLOCKER)
+    @DisplayName("Should display required-field errors for all fields when the form is submitted empty")
+    @Tag("Negative")
+    @Tag("CleanDB")
 
-    void shouldShowErrorsWhenSubmittingEmptyForm() {
+    void shouldShowAllRequiredErrorsWhenSubmittingEmptyForm() {
         cardPage.clickContinueButton();
 
-        cardPage.searchError(FieldName.NUMBER_CARD, errorTextRequiredField);
+        cardPage.searchError(FieldName.CARD_NUMBER, errorTextRequiredField);
         cardPage.searchError(FieldName.MONTH, errorTextRequiredField);
         cardPage.searchError(FieldName.YEAR, errorTextRequiredField);
         cardPage.searchError(FieldName.HOLDER, errorTextRequiredField);
         cardPage.searchError(FieldName.CVC, errorTextRequiredField);
+
+        SQLHelper.assertNoOrders();
+        SQLHelper.assertNoPayments();
     }
 
 
