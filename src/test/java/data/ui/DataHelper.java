@@ -1,4 +1,4 @@
-package data;
+package data.ui;
 
 import com.github.javafaker.Faker;
 
@@ -187,12 +187,12 @@ public class DataHelper {
         }
 
         public static String trimTo16Digits (String invalidCardNumber) {
-            StringBuilder sb = new StringBuilder();
-            sb.append(invalidCardNumber, 0, 4).append(" ");
-            sb.append(invalidCardNumber, 4, 8).append(" ");
-            sb.append(invalidCardNumber, 8, 12).append(" ");
-            sb.append(invalidCardNumber, 12, 16);
-            return sb.toString();
+            StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.append(invalidCardNumber, 0, 4).append(" ");
+            stringBuilder.append(invalidCardNumber, 4, 8).append(" ");
+            stringBuilder.append(invalidCardNumber, 8, 12).append(" ");
+            stringBuilder.append(invalidCardNumber, 12, 16);
+            return stringBuilder.toString();
         }
 
     }

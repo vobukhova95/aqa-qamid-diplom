@@ -1,12 +1,10 @@
-package data;
+package data.bd;
 
-import dev.failsafe.internal.util.Assert;
 import io.qameta.allure.Step;
 import lombok.*;
 import org.apache.commons.dbutils.QueryRunner;
 import org.apache.commons.dbutils.handlers.BeanHandler;
 import org.junit.jupiter.api.Assertions;
-import page.PaymentMethodPage;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
