@@ -4,16 +4,20 @@ import lombok.Value;
 
 public class ApiDataHelper {
 
-    private static String getCardNumberWithSpaces (String cardNumber) {
-        if(cardNumber == null || cardNumber.isEmpty()) {
+    private static String getCardNumberWithSpaces(String cardNumber) {
+        if (cardNumber == null || cardNumber.isEmpty()) {
             return "";
         }
-        StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append(cardNumber, 0, 4).append(" ");
-        stringBuilder.append(cardNumber, 4,8 ).append(" ");
-        stringBuilder.append(cardNumber, 8, 12).append(" ");
-        stringBuilder.append(cardNumber, 12, 16);
-        return stringBuilder.toString();
+
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < cardNumber.length(); i++) {
+            if (i > 0 && i % 4 == 0) {
+                result.append(" ");
+            }
+            result.append(cardNumber.charAt(i));
+        }
+
+        return result.toString();
     }
 
     public static String getSQLInjection(){

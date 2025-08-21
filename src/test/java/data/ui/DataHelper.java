@@ -43,7 +43,7 @@ public class DataHelper {
         /**
          * Метод, который возвращает текст ошибки "Неверный формат".
          */
-        public static String getErrorTextInvalidFormat(){
+        public static String getErrorTextInvalidFormat() {
             return "Неверный формат";
         }
 
@@ -70,14 +70,14 @@ public class DataHelper {
         }
 
 
-
         /**
          * Метод, который подготавливает ожидаемое значение и обрезает строку до максимальной валидной длины.
+         *
          * @param invalidValue - невалидное по количеству символов значение.
-         * @param maxLength - максимальное допустимое количестов символов в строке.
+         * @param maxLength    - максимальное допустимое количестов символов в строке.
          */
-        public static String truncateToMaxLength (String invalidValue, int maxLength){
-         return invalidValue.substring(0, maxLength);
+        public static String truncateToMaxLength(String invalidValue, int maxLength) {
+            return invalidValue.substring(0, maxLength);
         }
 
 
@@ -186,13 +186,21 @@ public class DataHelper {
             return "4111111111111111";
         }
 
-        public static String trimTo16Digits (String invalidCardNumber) {
-            StringBuilder stringBuilder = new StringBuilder();
-            stringBuilder.append(invalidCardNumber, 0, 4).append(" ");
-            stringBuilder.append(invalidCardNumber, 4, 8).append(" ");
-            stringBuilder.append(invalidCardNumber, 8, 12).append(" ");
-            stringBuilder.append(invalidCardNumber, 12, 16);
-            return stringBuilder.toString();
+
+        /**
+         * Метод, который возвращает ожидаемое валидное значение номера карты при вводе более 16 цифр.
+         *
+         * @param invalidCardNumber - невалидный номер карты.
+         */
+        public static String trimTo16Digits(String invalidCardNumber) {
+            StringBuilder result = new StringBuilder();
+            for (int i = 0; i < 16; i++) {
+                if (i > 0 && i % 4 == 0) {
+                    result.append(" ");
+                }
+                result.append(invalidCardNumber.charAt(i));
+            }
+            return result.toString();
         }
 
     }
@@ -200,7 +208,7 @@ public class DataHelper {
 
     public static class Month {
 
-      private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM");
+        private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM");
 
         /**
          * Валидный месяц.
@@ -261,7 +269,7 @@ public class DataHelper {
 
 
     public static class CardYear {
-       private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yy");
+        private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yy");
 
         /**
          * Генерация года с учётом смещения от текущего года.

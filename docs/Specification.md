@@ -84,3 +84,8 @@ java -jar artifacts/aqa-shop.jar
 ```
 ./gradlew clean test
 ```
+
+### 5. Запуск отчета Allure
+```
+./gradlew allureServe
+```
